@@ -1,7 +1,7 @@
 ﻿Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "dirs", "dirs.xln", "{29D697A2-B1D3-41CA-B0F8-82327D212D54}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FastDownload", "app\FastDownload.csproj", "{690384CF-A7E6-4216-B93E-59827B977509}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FastDownload", "src\FastDownload.csproj", "{690384CF-A7E6-4216-B93E-59827B977509}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FastDownload.Tests", "tests\FastDownload.Tests.csproj", "{F4B75C8C-186A-41C1-85DE-403E52BB8AE2}"
 EndProject

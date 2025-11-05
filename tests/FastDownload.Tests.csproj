@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\app\FastDownload.csproj" />
+    <ProjectReference Include="..\src\FastDownload.csproj" />
   </ItemGroup>
 
   <ItemGroup>
