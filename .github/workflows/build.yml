@@ -1,0 +1,68 @@
+name: Build And Release
+run-name: R#${{ github.run_number }} (${{ github.event.repository.updated_at }}) [${{ github.event.head_commit.message }}]
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+    - main
+
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Initialize directories
+      shell: pwsh
+      run: |
+        mkdir binlogs
+
+    - name: Set up versioning
+      shell: pwsh
+      run: |
+        $timestamp = Get-Date -Format "yyyyMMdd.${{ github.run_number }}"
+        $versionSuffix = "Dev-${timestamp}-$(git rev-parse --short HEAD)"
+
+        echo "VersionSuffix=$versionSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+        $publishRoot = Join-Path -Path $PWD -ChildPath "publish"
+
+        echo "PackageVersionlessOutputPath=$publishRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+    - name: Publish
+      shell: pwsh
+      run: |
+        foreach ($runtimeId in @("win-x64", "linux-x64")) {
+          dotnet publish src/FastDownload.csproj -o publish/$runtimeId "/bl:binlogs/${runtimeId}.binlog" ` 
+            -r $runtimeId --self-contained /p:PublishSingleFile=true /p:EnableNugetPackagePublishing=false /p:EnableBinaryCheck=false /p:Configuration=Release /p:PublishAot=false
+        }
+
+    - name: Upload Binaries
+      uses: actions/upload-artifact@v4
+      with:
+        name: binaries
+        path: publish
+
+    - name: Upload Binlogs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ github.job }}-binlogs
+        path: binlogs
+
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Run Tests
+      shell: pwsh
+      run: dotnet test tests/FastDownload.Tests.csproj
