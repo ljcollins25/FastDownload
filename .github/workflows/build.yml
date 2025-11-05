@@ -38,8 +38,9 @@ jobs:
       shell: pwsh
       run: |
         foreach ($runtimeId in @("win-x64", "linux-x64")) {
-          dotnet publish src/FastDownload.csproj -o publish/$runtimeId "/bl:binlogs/${runtimeId}.binlog" ` 
-            -r $runtimeId --self-contained /p:PublishSingleFile=true /p:EnableNugetPackagePublishing=false /p:EnableBinaryCheck=false /p:Configuration=Release /p:PublishAot=false
+          dotnet publish src/FastDownload.csproj -o publish/$runtimeId "/bl:binlogs/${runtimeId}.binlog" `
+            -r $runtimeId --self-contained /p:PublishSingleFile=true /p:EnableNugetPackagePublishing=false `
+            /p:EnableBinaryCheck=false /p:Configuration=Release /p:PublishAot=false
         }
 
     - name: Upload Binaries
