@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.Build.Traversal/3.3.0">
+  <ItemGroup>
+    <ProjectFile Include="app\FastDownload.csproj" />
+    <ProjectFile Include="tests\FastDownload.Tests.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <SolutionFile Include="*" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <RunConfiguration>
+    <!-- Set the default timeout for each test in milliseconds -->
+    <TestTimeout>120000</TestTimeout>
+  </RunConfiguration>
+</RunSettings>

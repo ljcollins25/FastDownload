@@ -1,0 +1,33 @@
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "dirs", "dirs.xln", "{29D697A2-B1D3-41CA-B0F8-82327D212D54}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FastDownload", "app\FastDownload.csproj", "{690384CF-A7E6-4216-B93E-59827B977509}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FastDownload.Tests", "tests\FastDownload.Tests.csproj", "{F4B75C8C-186A-41C1-85DE-403E52BB8AE2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{29D697A2-B1D3-41CA-B0F8-82327D212D54}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{29D697A2-B1D3-41CA-B0F8-82327D212D54}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{29D697A2-B1D3-41CA-B0F8-82327D212D54}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{29D697A2-B1D3-41CA-B0F8-82327D212D54}.Release|Any CPU.Build.0 = Release|Any CPU
+		{690384CF-A7E6-4216-B93E-59827B977509}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{690384CF-A7E6-4216-B93E-59827B977509}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{690384CF-A7E6-4216-B93E-59827B977509}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{690384CF-A7E6-4216-B93E-59827B977509}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F4B75C8C-186A-41C1-85DE-403E52BB8AE2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F4B75C8C-186A-41C1-85DE-403E52BB8AE2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F4B75C8C-186A-41C1-85DE-403E52BB8AE2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F4B75C8C-186A-41C1-85DE-403E52BB8AE2}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {6207C79D-7B21-484A-9256-EB81CE8C1122}
+	EndGlobalSection
+EndGlobal

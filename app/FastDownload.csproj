@@ -1,0 +1,95 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <LangVersion>preview</LangVersion>
+
+    <PublishRelease>true</PublishRelease>
+    <PublishDocumentationFile>false</PublishDocumentationFile>
+    <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
+    <NoWarn>$(NoWarn),AD0001,CA1848,RA009</NoWarn>
+
+    <GitCommitId Condition="$(GitCommitId) == '' AND '$(BUILD_SOURCEVERSION)' != ''">$(BUILD_SOURCEVERSION)</GitCommitId>
+    <GitCommitId Condition="$(GitCommitId) == '' AND '$(SYSTEM_PULLREQUEST_SOURCECOMMITID)' != ''">$(SYSTEM_PULLREQUEST_SOURCECOMMITID)</GitCommitId>
+    <InformationalVersion Condition="$(GitCommitId) != ''">$(GitCommitId)</InformationalVersion>
+  </PropertyGroup>
+
+
+  <PropertyGroup>
+    <PackageId>FastDownload.Tool</PackageId>
+    <Authors>Microsoft</Authors>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <Copyright>© Microsoft Corporation. All rights reserved.</Copyright>
+    <PackageTags>FastDownload</PackageTags>
+    <PackageDescription>Download very large files from a URL as fast as possible without disk buffering to ensure VHDs can be mounted quickly</PackageDescription>
+  </PropertyGroup>
+
+  <!-- Release binaries will be created with Native AOT. This is because Native AOT greatly
+  decreases the startup speed of the application and the amount of time it takes us to get to peak
+  throughput. 
+
+   See: https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/
+  -->
+  
+  <PropertyGroup>
+    <EnablePerformanceOptimizations Condition=" '$(Configuration)' == 'Release' ">true</EnablePerformanceOptimizations>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(EnablePerformanceOptimizations)' == 'true' ">
+    <PublishAot>true</PublishAot>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <OptimizationPreference>Speed</OptimizationPreference>
+
+    <!-- Needed to ensure all dependencies are included in release binaries-->
+    <SelfContained>true</SelfContained>
+
+    <StripSymbols>false</StripSymbols>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Configuration.ConfigurationManager" />
+
+    <PackageReference Include="System.CommandLine" />
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" />
+    <PackageReference Include="Polly.Contrib.WaitAndRetry" />
+    <PackageReference Include="NLog" />
+    <PackageReference Include="Azure.Storage.Blobs" />
+
+    <PackageReference Include="DotNext.Unsafe"/>
+    <PackageReference Include="K4os.Compression.LZ4.Streams" />
+    <PackageReference Include="ZstdSharp.Port" />
+
+    <PackageReference Include="Microsoft.BuildXL.Cache.ContentStore.Hashing" />
+    <PackageReference Include="Microsoft.BuildXL.Cache.ContentStore.Interfaces" />
+    <PackageReference Include="Microsoft.BuildXL.Cache.ContentStore.Library" />
+    <PackageReference Include="Microsoft.BuildXL.Utilities.Core" />
+    <PackageReference Include="Microsoft.BuildXL.Utilities" />
+
+    <!-- Transitive version fixes-->
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces"/>
+    <PackageReference Include="System.Text.Encodings.Web"/>
+  </ItemGroup>
+
+  <!-- Ensure we can reference internal members in the tests -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="FastDownload.Tests" />
+  </ItemGroup>
+
+  <!-- This defines the target name after which the binary is ready for running. It's required
+  because in Native AOT, the binary is published twice: first without AOT, and then with AOT 
+  after the Publish runs. If we used Publish, we'd run with a mix of AOT and non-AOT assemblies 
+  which breaks. -->
+  <PropertyGroup Condition=" '$(PublishAot)' == 'true' ">
+    <AfterBinaryProducedTarget>_CopyAotSymbols</AfterBinaryProducedTarget>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(PublishAot)' != 'true' ">
+    <AfterBinaryProducedTarget>Publish</AfterBinaryProducedTarget>
+  </PropertyGroup>
+</Project>
