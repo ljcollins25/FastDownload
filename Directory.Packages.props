@@ -11,6 +11,7 @@
     <PackageVersion Include="Microsoft.BuildXL.Utilities" Version="$(BuildXLPublicPackagesVersion)" />
     <PackageVersion Include="Microsoft.BuildXL.Utilities.Core" Version="$(BuildXLPublicPackagesVersion)" />
 
+    <PackageVersion Include="Microsoft.BuildXL.Interop.Runtime.osx-x64" Version="0.1.0-20251031.4" />
 
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.16.0" />
     <PackageVersion Include="BuildXL.Azurite.Executables"  Version="1.0.0-CI-20250114-025011"/>
