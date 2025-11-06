@@ -2,10 +2,6 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <BuildXLPublicPackagesVersion Condition="'$(BuildXLPublicPackagesVersion)' == ''">0.1.0-20251031.4</BuildXLPublicPackagesVersion>
-    <DefaultPackages_RestoreSource Condition="'$(DefaultPackages_RestoreSource)' == ''">https://api.nuget.org/v3/index.json</DefaultPackages_RestoreSource>
-    <BuildXLPublicPackages_RestoreSource Condition="'$(BuildXLPublicPackages_RestoreSource)' == ''">https://pkgs.dev.azure.com/mseng/PipelineTools/_packaging/BuildXL.External/nuget/v3/index.json</BuildXLPublicPackages_RestoreSource>
-    <RestoreSources Condition="'$(BuildXLPublicPackages_RestoreSource)' != ''">$(RestoreSources);$(BuildXLPublicPackages_RestoreSource)</RestoreSources>
-    <RestoreSources Condition="'$(DefaultPackages_RestoreSource)' != ''">$(RestoreSources);$(DefaultPackages_RestoreSource)</RestoreSources>
   </PropertyGroup>
 
   <ItemGroup>
