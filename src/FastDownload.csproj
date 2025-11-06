@@ -69,7 +69,6 @@
     <PackageReference Include="Microsoft.BuildXL.Cache.ContentStore.Interfaces" />
     <PackageReference Include="Microsoft.BuildXL.Cache.ContentStore.Library" />
     <PackageReference Include="Microsoft.BuildXL.Utilities.Core" />
-    <PackageReference Include="Microsoft.BuildXL.Utilities" />
 
     <!-- Transitive version fixes-->
     <PackageReference Include="Microsoft.Bcl.AsyncInterfaces"/>
