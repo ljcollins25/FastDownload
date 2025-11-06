@@ -62,6 +62,7 @@ public sealed class Program
                     Verbose = m.Option(d => ref d.Verbose, name: "verbose", description: "Enable verbose logging", defaultValue: false),
                 };
 
+                m.Option(d => ref d.Raw, name: "raw", description: "Specifies that file should be uploaded as-is with no compression or added metadata", defaultValue: false, isHidden: false);
                 m.Option(d => ref d.ManifestPath, name: "manifest-path", description: "The file path to write computed manifest");
                 m.Option(d => ref d.MaximumUploadConcurrency, name: "concurrency", description: "Maximum concurrency", defaultValue: Environment.ProcessorCount);
                 m.Option(d => ref d.ExecutionTimeoutMinutes, name: "timeout",
@@ -73,6 +74,7 @@ public sealed class Program
 
                 m.Option(d => ref d.CheckOnly, name: "check-only", description: "Verifies that the content if the file matches the destination uri", defaultValue: false, isHidden: true);
                 m.Option(d => ref d.CheckManifestUri, name: "check-uri", description: "Path to manifest or blob uri for uploaded file to validate block hashes during upload", isHidden: true);
+                m.Option(d => ref d.RandomFileSize, name: "random-size", description: "Size (in bytes) of random content to generate instead of taking content from local file", isHidden: true);
 
                 return result;
             },

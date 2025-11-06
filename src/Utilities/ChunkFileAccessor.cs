@@ -9,9 +9,9 @@ namespace FastDownload.Utilities;
 /// <summary>
 /// Provides access to a file stream for reading chunks.
 /// </summary>
-internal class ChunkFileAccessor(Stream stream)
+internal class ChunkFileAccessor(Stream stream) : IAsyncDisposable
 {
-    public static ChunkFileAccessor Create(FileStream stream, ChunkingScheme chunkingScheme)
+    public static ChunkFileAccessor Create(Stream stream, ChunkingScheme chunkingScheme)
     {
         if (chunkingScheme.SparseInfo?.Mode == SparseHandlingMode.Compact)
         {
@@ -23,6 +23,11 @@ internal class ChunkFileAccessor(Stream stream)
         }
     }
 
+    public static ChunkFileAccessor CreateRandomContent(long length)
+    {
+        return new RandomContentChunkFileAccessor(length);
+    }
+
     public virtual async ValueTask ReadChunkAsync(long offset, Memory<byte> buffer, CancellationToken token)
     {
         stream.Seek(offset, SeekOrigin.Begin);
@@ -30,13 +35,33 @@ internal class ChunkFileAccessor(Stream stream)
         await stream.ReadExactlyAsync(buffer, token);
     }
 
-    public virtual double GetPercent(long offset) => ((int)((100000 * offset) / stream.Length)) / 1000.0;
+    public virtual long Length => stream.Length;
+
+    public virtual double GetPercent(long offset) => ((int)((100000 * offset) / Length)) / 1000.0;
+
+    public ValueTask DisposeAsync()
+    {
+        return stream.DisposeAsync();
+    }
+}
+
+internal class RandomContentChunkFileAccessor(long length) : ChunkFileAccessor(Stream.Null)
+{
+    public Random random = new Random();
+
+    public override ValueTask ReadChunkAsync(long offset, Memory<byte> buffer, CancellationToken token)
+    {
+        random.NextBytes(buffer.Span);
+        return ValueTask.CompletedTask;
+    }
+
+    public override long Length => length;
 }
 
 /// <summary>
 /// Provides access to a file stream for reading virtual chunks composed of sparse physical chunks.
 /// </summary>
-internal class SparseChunkFileAccessor(FileStream stream, long blockSize, IReadOnlyList<ChunkMapping> chunks) : ChunkFileAccessor(stream)
+internal class SparseChunkFileAccessor(Stream stream, long blockSize, IReadOnlyList<ChunkMapping> chunks) : ChunkFileAccessor(stream)
 {
     public override async ValueTask ReadChunkAsync(long offset, Memory<byte> buffer, CancellationToken token)
     {

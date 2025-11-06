@@ -32,6 +32,12 @@ internal static class UploadCommand
         // Just to use it and get rid of errors
         internalCancellationSource.Token.ThrowIfCancellationRequested();
 
+        if (arguments.Raw)
+        {
+            arguments.CompressionLevel = System.IO.Compression.CompressionLevel.NoCompression;
+            arguments.SparseHandling = SparseHandlingMode.None;
+        }
+
         if (arguments.CheckOnly)
         {
             arguments.CheckManifestUri = arguments.Uri;
@@ -44,28 +50,39 @@ internal static class UploadCommand
         // Report progress
         // Handle cancellation
 
-        var fileInfo = new FileInfo(arguments.Path);
-        if (!fileInfo.Exists)
-        {
-            throw new FileNotFoundException($"File '{arguments.Path}' does not exist.");
-        }
-
         ChunkingScheme chunking;
-        using (var fileStream = fileInfo.OpenRead())
+        IUploadContentProvider contentProvider;
+        if (arguments.RandomFileSize is long randomFileSize)
         {
-            chunking = ChunkingScheme.FromFileStream(arguments.SparseHandling, fileStream, arguments.BlockSize);
+            chunking = ChunkingScheme.Create(fileSize: randomFileSize, alignment: (uint)Environment.SystemPageSize, blockSize: arguments.BlockSize);
 
-            // This is given by the Azure Storage Blob service. They don't allow more than 50,000 blocks in a block blob.
-            if (chunking.Chunks.Count > 50_000)
+            contentProvider = new NullUploadContentProvider(arguments.Path);
+        }
+        else
+        {
+            var fileInfo = new FileInfo(arguments.Path);
+            if (!fileInfo.Exists)
             {
-                throw new InvalidOperationException($"The file is too large to upload. The maximum number of blocks is 50,000. The file has {chunking.Chunks.Count} blocks.");
+                throw new FileNotFoundException($"File '{arguments.Path}' does not exist.");
             }
+            using (var fileStream = fileInfo.OpenRead())
+            {
+                chunking = ChunkingScheme.FromFileStream(arguments.SparseHandling, fileStream, arguments.BlockSize);
+
+                // This is given by the Azure Storage Blob service. They don't allow more than 50,000 blocks in a block blob.
+                if (chunking.Chunks.Count > 50_000)
+                {
+                    throw new InvalidOperationException($"The file is too large to upload. The maximum number of blocks is 50,000. The file has {chunking.Chunks.Count} blocks.");
+                }
+            }
+
+            contentProvider = new FileUploadContentProvider(fileInfo);
         }
 
         Logger.ForInfoEvent()
             .Message(
                 "Uploading {FileName} to {Uri} with block size {BlockSize} and compression {Compression}. Raw file size: {RawFileSize}, Size on disk: {OccupiedBytes}, NumChunks: {NumChunks}, NumDataRegions: {NumRegions}, SparseWrittenBytes: {SparseWrittenBytes}, SparseDownloadBytes: {SparseDownloadBytes}",
-                fileInfo.FullName,
+                contentProvider.FullName,
                 arguments.Uri.Scrub().ToString(),
                 arguments.BlockSize,
                 arguments.Compression,
@@ -130,7 +147,7 @@ internal static class UploadCommand
                 uploadMechanism = await VerifyingUploadMechanism.CreateAsync(uploadMechanism, arguments.CheckManifestUri, cancellationToken);
             }
 
-            await UploadFileAsync(arguments, statistics, fileInfo, chunking, uploadMechanism, cancellationToken);
+            await UploadFileAsync(arguments, statistics, contentProvider, chunking, uploadMechanism, cancellationToken);
         }
         catch
         {
@@ -161,14 +178,14 @@ internal static class UploadCommand
         Logger.ForInfoEvent()
             .Message(
                 "Upload of {FileName} to {Uri} completed successfully.",
-                fileInfo.FullName,
+                contentProvider.FullName,
                 arguments.Uri.Scrub().ToString())
             .Log();
 
         statistics.LogCompressionReport();
     }
 
-    private static async Task UploadFileAsync<T>(UploadArguments arguments, Statistics statistics, FileInfo fileInfo, ChunkingScheme chunking, T uploadMechanism, CancellationToken cancellationToken)
+    private static async Task UploadFileAsync<T>(UploadArguments arguments, Statistics statistics, IUploadContentProvider contentProvider, ChunkingScheme chunking, T uploadMechanism, CancellationToken cancellationToken)
         where T : IUploadMechanism
     {
         using var uploadSemaphore = new SemaphoreSlim(arguments.MaximumUploadConcurrency, arguments.MaximumUploadConcurrency);
@@ -176,8 +193,9 @@ internal static class UploadCommand
         {
             using var guard = await uploadSemaphore.AcquireAsync(cancellationToken);
 
-            await using var inputStream = fileInfo.OpenRead();
-            var accessor = ChunkFileAccessor.Create(inputStream, chunking);
+            await using var accessor = arguments.RandomFileSize != null
+                ? ChunkFileAccessor.CreateRandomContent((long)arguments.RandomFileSize.Value)
+                : ChunkFileAccessor.Create(contentProvider.OpenReadStream(), chunking);
             return await UploadBoundaryAsync(arguments, statistics, uploadMechanism, accessor, boundary, cancellationToken);
         });
         var partials = await Task.WhenAll(tasks);

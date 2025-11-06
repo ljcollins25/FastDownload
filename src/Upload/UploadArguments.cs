@@ -30,6 +30,17 @@ internal sealed record UploadArguments : ArgumentsBase
 
     public required bool Overwrite;
 
+    /// <summary>
+    /// Specifying this indicates that the file should be uploaded uncompressed with no manifest footer to
+    /// exactly match the uploaded file bytes
+    /// </summary>
+    public bool Raw;
+
+    /// <summary>
+    /// The size of random file to upload
+    /// </summary>
+    public long? RandomFileSize;
+
     public int MaximumUploadConcurrency;
 
     public SparseHandlingMode SparseHandling;
