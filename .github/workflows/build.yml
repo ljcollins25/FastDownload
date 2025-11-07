@@ -3,6 +3,12 @@ run-name: R#${{ github.run_number }} (${{ github.event.repository.updated_at }})
 
 on:
   workflow_dispatch:
+    inputs:
+      createRelease:
+        description: "Create a release"
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
     - main
@@ -25,24 +31,23 @@ jobs:
     - name: Set up versioning
       shell: pwsh
       run: |
-        $timestamp = Get-Date -Format "yyyyMMdd.${{ github.run_number }}"
-        $versionSuffix = "Dev-${timestamp}-$(git rev-parse --short HEAD)"
+        $timestamp = Get-Date -Format "0.yyyyMMdd.${{ github.run_number }}"
 
-        echo "VersionSuffix=$versionSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-        $publishRoot = Join-Path -Path $PWD -ChildPath "publish"
-
-        echo "PackageVersionlessOutputPath=$publishRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-    - name: Publish
-      shell: pwsh
-      run: |
         $Year = Get-Date -Format "yyyy"
         $Month = Get-Date -Format "MM"
         $Day = Get-Date -Format "dd"
         $CommitHash = $Env:GITHUB_SHA
         $ShortCommitHash = $CommitHash.Substring(0, 8)
         $InformationalVersion = "$Year.$Month.$Day-${ShortCommitHash}+${CommitHash}"
+        $ReleaseVersion = "$timestamp"
+
+        echo "InformationalVersion=$InformationalVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        echo "ReleaseVersion=$ReleaseVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+    - name: Publish
+      shell: pwsh
+      run: |
+
 
         foreach ($runtimeId in @("win-x64", "linux-x64")) {
           dotnet publish src/FastDownload.csproj -o publish/$runtimeId "/bl:binlogs/${runtimeId}.binlog" `
@@ -74,3 +79,27 @@ jobs:
     - name: Run Tests
       shell: pwsh
       run: dotnet test tests/FastDownload.Tests.csproj
+
+  release:
+    runs-on: windows-latest
+    needs: [build, test]
+    if : github.event.inputs.createRelease == 'true'
+
+    steps:
+    - name: Download Index Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: binaries
+        path: publish
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: ${{ jobs.build.outputs.ReleaseVersion }}
+        tag_name: ${{ jobs.build.outputs.ReleaseVersion }}
+        prerelease: true
+        body: |
+          Release version: ${{ jobs.build.outputs.ReleaseVersion }}
+        files: |
+          publish/win-x64/fastdownload.exe
+          publish/linux-x64/fastdownload

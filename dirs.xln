@@ -1,4 +1,8 @@
 <Project Sdk="Microsoft.Build.Traversal/3.3.0">
+  <PropertyGroup>
+    <SolutionDisplayName>$(MSBuildThisFileName) [$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName($(MSBuildThisFileFullPath)))))]</SolutionDisplayName>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectFile Include="src\FastDownload.csproj" />
     <ProjectFile Include="tests\FastDownload.Tests.csproj" />
