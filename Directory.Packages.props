@@ -1,5 +1,6 @@
 <Project>
   <PropertyGroup>
+    <OverridePackagesPath>$(MSBuildThisFileDirectory)packages/overrides</OverridePackagesPath>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <BuildXLPublicPackagesVersion Condition="'$(BuildXLPublicPackagesVersion)' == ''">0.1.0-20251031.4</BuildXLPublicPackagesVersion>
   </PropertyGroup>
