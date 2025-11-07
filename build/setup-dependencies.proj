@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.Build.NoTargets/1.0.80"> <!-- This is not a project we want to build. -->
+
+    <PropertyGroup>
+        <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>
+        <RestorePackagesPath>$(MSBuildThisFileDirectory)packages/source</RestorePackagesPath> <!-- Changes the global packages folder-->
+        <StagingPackagesPath>$(MSBuildThisFileDirectory)packages/staging</StagingPackagesPath> <!-- Changes the global packages folder-->
+        <MSBuildProjectExtensionsPath>$(RestorePackagesPath)obj/</MSBuildProjectExtensionsPath> <!-- It's still PackageReference, so project intermediates are still created. -->
+        <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder> <!-- If a package is resolved to a fallback folder, it may not be downloaded.-->
+        <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages> <!-- We don't want to build this project, so we do not need the reference assemblies for the framework we chose.-->
+        <NupkgWrenchVersion>4.3.0</NupkgWrenchVersion>
+        <NupkgWrenchExePath>$(RestorePackagesPath)/NupkgWrenchExe/$(NupkgWrenchVersion)/tools/NupkgWrench.exe</NupkgWrenchExePath>
+        <PkgPathFormat>{2}/{0}/{1}/{0}.{1}.nupkg</PkgPathFormat>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageDownload Include="NupkgWrenchExe" Version="[$(NupkgWrenchVersion)]" />
+
+        <!-- This is needed to work around misauthored package using incorrect version. Instead we replace it with the correct version. -->
+        <OverridePackage Include="Microsoft.BuildXL.Interop.Runtime.osx-x64" Version="$(BuildXLPublicPackagesVersion)"
+            TargetVersion="20230818.1.0" />
+
+        <PackageDownload Include="@(OverridePackage)" Version="[%(Version)]" />
+
+        <AnnotatedOverridePackage Include="@(OverridePackage)" 
+            SourcePkgPath="$([System.String]::Format('$(PkgPathFormat)', '%(Identity)', '%(Version)', '$(RestorePackagesPath)'))"
+            StagingPkgPath="$([System.String]::Format('$(PkgPathFormat)', '%(Identity)', '%(Version)', '$(StagingPackagesPath)'))"
+            TargetPkgPath="$(OverridePackagesPath)/%(Identity).%(TargetVersion).nupkg"
+             />
+    </ItemGroup>
+
+    <Target Name="SetupDependencies" 
+            Inputs="@(AnnotatedOverridePackage ->'%(SourcePkgPath)')" 
+            Outputs="%(TargetPkgPath)" 
+            DependsOnTargets="Restore">
+        <ItemGroup>
+          <OverriddenPackages Include="@(PackageDownload->HasMetadata('TargetVersion'))" />
+        </ItemGroup>
+
+        <Copy SourceFiles="@(AnnotatedOverridePackage ->'%(SourcePkgPath)')" 
+              DestinationFiles="@(AnnotatedOverridePackage ->'%(StagingPkgPath)')" />
+
+        <Exec Command="&quot;$(NupkgWrenchExePath)&quot; nuspec edit  &quot;%(AnnotatedOverridePackage.StagingPkgPath)&quot; -p Version -s %(AnnotatedOverridePackage.TargetVersion)"
+          StandardOutputImportance="High"  StandardErrorImportance="High" 
+          />
+
+        <Exec Command="&quot;$(NupkgWrenchExePath)&quot; version  &quot;%(AnnotatedOverridePackage.StagingPkgPath)&quot;"
+          StandardOutputImportance="High"  StandardErrorImportance="High" 
+          />
+
+        <Copy SourceFiles="@(AnnotatedOverridePackage ->'%(StagingPkgPath)')" 
+              DestinationFiles="@(AnnotatedOverridePackage ->'%(TargetPkgPath)')" />
+    </Target>
+
+</Project>
