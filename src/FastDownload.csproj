@@ -15,7 +15,8 @@
 
     <GitCommitId Condition="$(GitCommitId) == '' AND '$(BUILD_SOURCEVERSION)' != ''">$(BUILD_SOURCEVERSION)</GitCommitId>
     <GitCommitId Condition="$(GitCommitId) == '' AND '$(SYSTEM_PULLREQUEST_SOURCECOMMITID)' != ''">$(SYSTEM_PULLREQUEST_SOURCECOMMITID)</GitCommitId>
-    <InformationalVersion Condition="$(GitCommitId) != ''">$(GitCommitId)</InformationalVersion>
+    <GitCommitId Condition="$(GitCommitId) == '' AND '$(GITHUB_SHA)' != ''">$(GITHUB_SHA)</GitCommitId>
+    <InformationalVersion Condition="$(GitCommitId) != ''">1.0.0+$(GitCommitId)</InformationalVersion>
   </PropertyGroup>
 
 
