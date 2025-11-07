@@ -1,9 +1,13 @@
-<Project>
+<Project InitialTargets="_PreparePackagesPaths">
   <PropertyGroup>
     <OverridePackagesPath>$(MSBuildThisFileDirectory)packages/overrides</OverridePackagesPath>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <BuildXLPublicPackagesVersion Condition="'$(BuildXLPublicPackagesVersion)' == ''">0.1.0-20251031.4</BuildXLPublicPackagesVersion>
   </PropertyGroup>
+
+    <Target Name="_PreparePackagesPaths">
+        <MakeDir Directories="$(OverridePackagesPath)" />
+    </Target>
 
   <ItemGroup>
     <PackageVersion Include="Microsoft.BuildXL.Cache.ContentStore.Hashing" Version="$(BuildXLPublicPackagesVersion)" />

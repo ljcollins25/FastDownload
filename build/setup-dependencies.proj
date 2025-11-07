@@ -14,6 +14,8 @@
 
     <ItemGroup>
         <PackageDownload Include="NupkgWrenchExe" Version="[$(NupkgWrenchVersion)]" />
+
+        <!-- This is needed to work around misauthored package using incorrect version. Instead we replace it with the correct version. -->
         <OverridePackage Include="Microsoft.BuildXL.Interop.Runtime.osx-x64" Version="$(BuildXLPublicPackagesVersion)"
             TargetVersion="20230818.1.0" />
 
@@ -22,7 +24,7 @@
         <AnnotatedOverridePackage Include="@(OverridePackage)" 
             SourcePkgPath="$([System.String]::Format('$(PkgPathFormat)', '%(Identity)', '%(Version)', '$(RestorePackagesPath)'))"
             StagingPkgPath="$([System.String]::Format('$(PkgPathFormat)', '%(Identity)', '%(Version)', '$(StagingPackagesPath)'))"
-            TargetPkgPath="$(OverridePackagesPath)/%(Identity).%(Version).nupkg"
+            TargetPkgPath="$(OverridePackagesPath)/%(Identity).%(TargetVersion).nupkg"
              />
     </ItemGroup>
 
@@ -37,7 +39,7 @@
         <Copy SourceFiles="@(AnnotatedOverridePackage ->'%(SourcePkgPath)')" 
               DestinationFiles="@(AnnotatedOverridePackage ->'%(StagingPkgPath)')" />
 
-        <Exec Command="&quot;$(NupkgWrenchExePath)&quot; nuspec edit  &quot;%(AnnotatedOverridePackage.StagingPkgPath)&quot; -p Version -s %(AnnotatedOverridePackage.Version)"
+        <Exec Command="&quot;$(NupkgWrenchExePath)&quot; nuspec edit  &quot;%(AnnotatedOverridePackage.StagingPkgPath)&quot; -p Version -s %(AnnotatedOverridePackage.TargetVersion)"
           StandardOutputImportance="High"  StandardErrorImportance="High" 
           />
 
