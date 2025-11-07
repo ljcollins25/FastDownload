@@ -40,7 +40,7 @@ jobs:
         $Day = Get-Date -Format "dd"
         $CommitHash = $Env:GITHUB_SHA
         $ShortCommitHash = $CommitHash.Substring(0, 8)
-        $InformationalVersion = "$Year.$Month.$Day-${ShortCommitHash}+${CommitHash}"
+        $InformationalVersion = "$Year.$Month.$Day"
         $ReleaseVersion = "$timestamp"
 
         echo "InformationalVersion=$InformationalVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -49,12 +49,10 @@ jobs:
     - name: Publish
       shell: pwsh
       run: |
-
-
         foreach ($runtimeId in @("win-x64", "linux-x64")) {
           dotnet publish src/FastDownload.csproj -o publish/$runtimeId "/bl:binlogs/${runtimeId}.binlog" `
             -r $runtimeId --self-contained /p:PublishSingleFile=true /p:EnableNugetPackagePublishing=false `
-            /p:EnableBinaryCheck=false /p:Configuration=Release /p:PublishAot=false /p:InformationalVersion=$InformationalVersion
+            /p:EnableBinaryCheck=false /p:Configuration=Release /p:PublishAot=false
         }
 
     - name: Upload Binaries

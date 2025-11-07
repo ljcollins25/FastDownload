@@ -13,10 +13,7 @@
     <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
     <NoWarn>$(NoWarn),AD0001,CA1848,RA009</NoWarn>
 
-    <GitCommitId Condition="$(GitCommitId) == '' AND '$(BUILD_SOURCEVERSION)' != ''">$(BUILD_SOURCEVERSION)</GitCommitId>
-    <GitCommitId Condition="$(GitCommitId) == '' AND '$(SYSTEM_PULLREQUEST_SOURCECOMMITID)' != ''">$(SYSTEM_PULLREQUEST_SOURCECOMMITID)</GitCommitId>
-    <GitCommitId Condition="$(GitCommitId) == '' AND '$(GITHUB_SHA)' != ''">$(GITHUB_SHA)</GitCommitId>
-    <InformationalVersion Condition="$(GitCommitId) != ''">1.0.0+$(GitCommitId)</InformationalVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
   </PropertyGroup>
 
 
