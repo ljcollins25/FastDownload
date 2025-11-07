@@ -19,7 +19,8 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-
+    outputs:
+      ReleaseVersion: ${{ steps.set_version.outputs.ReleaseVersion }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -28,7 +29,8 @@ jobs:
       run: |
         mkdir binlogs
 
-    - name: Set up versioning
+    - id: set_version
+      name: Set up versioning
       shell: pwsh
       run: |
         $timestamp = Get-Date -Format "0.yyyyMMdd.${{ github.run_number }}"
@@ -95,11 +97,11 @@ jobs:
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        name: ${{ jobs.build.outputs.ReleaseVersion }}
-        tag_name: ${{ jobs.build.outputs.ReleaseVersion }}
+        name: ${{ needs.build.outputs.ReleaseVersion }}
+        tag_name: ${{ needs.build.outputs.ReleaseVersion }}
         prerelease: true
         body: |
-          Release version: ${{ jobs.build.outputs.ReleaseVersion }}
+          Release version: ${{ needs.build.outputs.ReleaseVersion }}
         files: |
           publish/win-x64/fastdownload.exe
           publish/linux-x64/fastdownload
