@@ -1,7 +1,26 @@
 # FastDownload
 Tool for downloading very large files from a URL as fast as possible using range queries to parallel download of chunks. By default, it downloads without disk buffering to ensure VHDs can be mounted without needed to flush to disk first. Also, supports uploading and downloading files in a custom chunk compressed format.
 
-Download:
+## Features
+
+- High-speed parallel downloads using HTTP range requests with configurable concurrency and chunk size.
+- Direct streaming without disk buffering by default so VHDs can be mounted immediately.
+- Upload support with block-based chunking, selectable chunk size, compression algorithm and compression level.
+- Pluggable hash/checksum types for block integrity and deduplication.
+- Manifest export/import to persist or resume transfer metadata.
+- Bandwidth control (max/min MB/s).
+- Sparse-file aware transfers and optional skipping of zero-only regions.
+- Optional cross-machine coordination using an Azure blob based semaphore for shared concurrency control.
+- Built-in proxy mode to allow download chaining to reduce load on the http endpoint.
+
+## Usage
+
+Basic download of a file
+```
+fastdownload download --uri {url of remote file} --output {local file path}
+```
+
+### Download:
 ```
 Description:
   Download a file
@@ -66,7 +85,7 @@ Options:
   -?, -h, --help                                             Show help and usage information
 ```
 
-Upload:
+### Upload:
 ```
 Description:
   Upload a file
