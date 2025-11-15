@@ -280,11 +280,12 @@ namespace FastDownload.Download
                     {
                         Logger.ForInfoEvent()
                             .Message(
-                                "Starting server at '{ServerUri}' FileChecksum={FileChecksum} Id={Id}. BufferCount={BufferCount}",
+                                "Starting server at '{ServerUri}' FileChecksum={FileChecksum} Id={Id}. BufferCount={BufferCount} ProxyBufferSizeMb={ProxyBufferSizeMb}",
                                 chunkHost!.MachineInfo.Uri,
                                 chunkHost!.MachineInfo.FileChecksum,
                                 fileId,
-                                chunkHost!.BufferCount)
+                                chunkHost!.BufferCount,
+                                arguments.ProxyBufferSizeMb)
                             .Log();
 
                         try

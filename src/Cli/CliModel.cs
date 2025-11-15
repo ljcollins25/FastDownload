@@ -2,6 +2,7 @@
 
 using System.CommandLine;
 using System.CommandLine.Invocation;
+using BuildXL.Cache.ContentStore.UtilitiesCore.Internal;
 using BuildXL.Utilities;
 
 namespace FastDownload;
@@ -31,13 +32,17 @@ internal class CliModel<T>(Command command)
 
     public delegate ref TField RefFunc<TField>(T model);
 
-    private List<(Action<T, InvocationContext> Action, int Priority)> SetFields { get; } = new();
+    private List<(Action<T, InvocationContext, bool> Action, int Priority)> SetFields { get; } = new();
 
     public void Apply(T target, InvocationContext context)
     {
-        foreach (var item in SetFields.OrderBy(t => t.Priority))
+        // First set defaults. Then set explicit values
+        foreach (var implicitPhase in new bool[] { true, false })
         {
-            item.Action(target, context);
+            foreach (var item in SetFields.OrderBy(t => t.Priority))
+            {
+                item.Action(target, context, implicitPhase);
+            }
         }
     }
 
@@ -57,10 +62,10 @@ internal class CliModel<T>(Command command)
             // Allow argument to overridden by specifying again in command line
             option.AllowMultipleArgumentsPerToken = true;
 
-            SetFields.Add(((model, context) =>
+            SetFields.Add(((model, context, implicitPhase) =>
             {
                 var result = context.ParseResult.FindResultFor(option);
-                if (result != null)
+                if (result != null && result.IsImplicit == implicitPhase)
                 {
                     getFieldRef(model) = context.ParseResult.GetValueForOption(option)!;
 
