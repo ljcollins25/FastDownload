@@ -1,5 +1,5 @@
 <Project>
-  <Target Name="Fixup_RestoreDependencies" BeforeTargets="Restore">
+  <Target Name="Fixup_RestoreDependencies" BeforeTargets="Restore" Condition="'$(SkipFixup)' != 'true'">
     <!-- Ensure that setup-dependencies.proj is restored -->
     <MSBuild Projects="$(RepoRoot)/build/setup-dependencies.proj" Targets="SetupDependencies" />
   </Target>

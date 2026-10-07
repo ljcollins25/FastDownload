@@ -10,6 +10,7 @@ namespace FastDownload.Upload
     internal class AzureStorageUploader : IUploadMechanism
     {
         private readonly BlockBlobClient _blockClient;
+        private static readonly bool WriteOnlySas = Environment.GetEnvironmentVariable("FASTDL_WRITE_ONLY_SAS") == "1";
 
         private AzureStorageUploader(BlockBlobClient blockClient)
         {
@@ -20,7 +21,11 @@ namespace FastDownload.Upload
         {
             var uploader = new AzureStorageUploader(blockClient);
 
-            if (overwrite)
+            if (WriteOnlySas)
+            {
+                // linux-img: GitHub Actions artifact SAS only allows Put Block / Put Block List (no HEAD, no Get Block List, no Delete).
+            }
+            else if (overwrite)
             {
                 await uploader.DeleteAsync(cancellationToken);
             }
@@ -67,6 +72,12 @@ namespace FastDownload.Upload
             var commitOrdereredIds = blockIds.ToList();
 
             var ids = commitOrdereredIds.ToDictionary(o => o.Id, o => o);
+            if (WriteOnlySas)
+            {
+                // linux-img: SAS has no read permission, so staged blocks cannot be listed/validated; commit what we staged.
+                await _blockClient.CommitBlockListAsync(commitOrdereredIds.Select(b => b.Id).ToList(), options: new CommitBlockListOptions(), cancellationToken: cancellationToken);
+                return;
+            }
             var blocks = await _blockClient.GetBlockListAsync(BlockListTypes.All, cancellationToken: cancellationToken);
 
             if (blocks.Value.CommittedBlocks.Any())
