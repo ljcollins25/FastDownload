@@ -15,6 +15,7 @@ Remove-Item $R,$W -Recurse -Force -ea 0; New-Item -ItemType Directory $R,$W | Ou
 Start-Transcript "$W\run.txt" -Force | Out-Null
 # Compare a downloaded image with the original: size, per 1 MiB region differences (first 20 ranges), last 512 bytes (VHD footer), sparse flag, allocated size.
 function Compare-Image($orig,$got){
+  if(-not (Test-Path $got)){ "downloaded file $got does not exist"; return }
   $a=[IO.File]::OpenRead($orig); $b=[IO.File]::OpenRead($got)
   try {
     "orig size $($a.Length), downloaded size $($b.Length), sparse flag: $((fsutil sparse queryflag $got) -join ' ')"
@@ -45,11 +46,11 @@ switch($Variant){
     & $CL down "$ART-$Workload-child" "$W\child.vhd" | Out-Null
     $env:FASTDL_WRITE_ONLY_SAS = '0'
     $u = (& $CL art-url "$ART-$Workload-fdfull" | Select -Last 1).Trim()
-    $fdargs = @('download','--uri',$u,'--output',"$R\parent.vhd",'--manifest-path',"$W\manifest.json") + ($FdArgs -split ' ' | ? {$_})
-    & $FDX @fdargs *> "$W\fd-download.log"; $rec.fd_exit = $LASTEXITCODE
-    if($rec.fd_exit){ Get-Content "$W\fd-download.log" -Tail 20; $rec.error='fastdownload failed'; Finish $false; return }
+    $dlArgs = @('download','--uri',$u,'--output',"$R\parent.vhd",'--manifest-path',"$W\manifest.json") + ($FdArgs -split ' ' | ? {$_})
+    & $FDX @dlArgs *> "$W\fd-download.log"; $rec.fd_exit = $LASTEXITCODE
+    if($rec.fd_exit -or -not (Test-Path "$R\parent.vhd")){ Get-Content "$W\fd-download.log" -Tail 20; $rec.error='fastdownload failed or did not write the output'; Finish $false; return }
     $rec.fd_download_s = Round2 $sw.Elapsed.TotalSeconds
-    $rec.fd_net_bytes = [int64](((Select-String '"StorageBytesDownloaded"\s*:\s*(\d+)' "$W\fd-download.log" | Select -First 1).Matches.Groups[1].Value))
+    $m = Select-String '"StorageBytesDownloaded\w*"\s*:\s*(\d+)' "$W\fd-download.log" | Select -First 1; if($m){ $rec.fd_net_bytes = [int64]$m.Matches[0].Groups[1].Value }
     # a sparse file cannot be attached as a VHD: clear the flag (the image content is unchanged)
     fsutil sparse setflag "$R\parent.vhd" 0 | Out-Null; T 'fetch_s'
   }

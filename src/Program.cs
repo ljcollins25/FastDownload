@@ -1,4 +1,4 @@
-﻿// Copyright (C) Microsoft Corporation. All Rights Reserved.
+// Copyright (C) Microsoft Corporation. All Rights Reserved.
 
 using System.CommandLine;
 using System.IO.Compression;
@@ -17,7 +17,7 @@ public sealed class Program
 {
     public static async Task<int> Main(params string[] args)
     {
-        int returnCode = 0;
+        int returnCode = int.MaxValue; // replaced by the command's return code, or by the parser's when no command ran (usage errors must not exit 0)
 
         // For back-compat purposes, use structured log layout by default when correlation id is specified
         if (args.Length > 0 && !args.Any(a => string.Equals(a, "--correlation-id", StringComparison.OrdinalIgnoreCase)))
