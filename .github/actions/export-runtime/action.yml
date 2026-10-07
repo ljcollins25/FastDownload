@@ -1,0 +1,5 @@
+name: Export runtime token
+description: Exports ACTIONS_RUNTIME_TOKEN / ACTIONS_RESULTS_URL to later steps (needed for Actions artifact v4 access from scripts)
+runs:
+  using: node20
+  main: main.js

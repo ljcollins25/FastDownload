@@ -1,0 +1,7 @@
+<Project>
+  <!-- Isolates the lazydisk tools from the FastDownload repo-level build props/targets (they pull in the FastDownload dependency fixup). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

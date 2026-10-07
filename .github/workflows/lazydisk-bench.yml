@@ -1,0 +1,69 @@
+name: Lazy disk bench
+
+on:
+  workflow_dispatch:
+    inputs:
+      workload:
+        description: "Workload (selftest | serilog | runtime-libs | runtime-clr-libs)"
+        default: selftest
+        type: choice
+        options: [selftest, serilog, runtime-libs, runtime-clr-libs]
+      variants:
+        description: "Comma separated: native,fd,lazy,lazyfd"
+        default: "native,fd,lazy,lazyfd"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: windows-latest
+    timeout-minutes: 340
+    env:
+      BENCH_ART_PREFIX: ld
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+    - name: Export Actions runtime token
+      uses: ./.github/actions/export-runtime
+
+    - name: Build lab tools and FastDownload
+      shell: pwsh
+      run: |
+        ./lazydisk/scripts/setup_lab.ps1
+        dotnet publish src/FastDownload.csproj -o D:\cf\fd -r win-x64 --self-contained /p:PublishSingleFile=true /p:EnableNugetPackagePublishing=false /p:EnableBinaryCheck=false /p:Configuration=Release /p:PublishAot=false
+        Get-ChildItem D:\cf\fd\FastDownload.exe | Select FullName, Length
+
+    - name: Build workload image and publish blobs
+      shell: pwsh
+      run: ./lazydisk/scripts/bench_build.ps1 -Workload '${{ inputs.workload }}' -Variants '${{ inputs.variants }}'
+
+    - name: Run variants
+      shell: pwsh
+      run: |
+        foreach ($v in '${{ inputs.variants }}'.Split(',') | % { $_.Trim() } | ? { $_ }) {
+          "=== $v ==="
+          ./lazydisk/scripts/bench_run.ps1 -Workload '${{ inputs.workload }}' -Variant $v
+        }
+
+    - name: Summary
+      if: always()
+      shell: pwsh
+      run: |
+        $f = 'D:\lazy\results\results.jsonl'
+        if (Test-Path $f) { Get-Content $f; '~~~json' | Out-File $env:GITHUB_STEP_SUMMARY -Append; Get-Content $f | Out-File $env:GITHUB_STEP_SUMMARY -Append; '~~~' | Out-File $env:GITHUB_STEP_SUMMARY -Append }
+
+    - name: Upload results and logs
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: lazydisk-bench-results
+        path: |
+          D:\lazy\results
+          D:\lazy\i\*\logs
+          D:\lazy\i\*\run_*\*.txt
+          D:\lazy\i\*\run_*\*.log
+          D:\lazy\i\*\run_*\*.csv
+        if-no-files-found: ignore
