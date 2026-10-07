@@ -16,6 +16,20 @@ on:
         default: "native,fd,lazy,lazyfd"
         type: string
 
+  # Called by the stub on the default branch (main), so "Run workflow" works with main selected.
+  workflow_call:
+    inputs:
+      workload:
+        type: string
+        default: selftest
+      variants:
+        type: string
+        default: "native,fd,lazy,lazyfd"
+      ref:
+        description: "Branch to check out (a called workflow would otherwise check out the caller's ref)"
+        type: string
+        default: lazydisk-bench
+
 permissions:
   contents: read
 
@@ -28,6 +42,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      with:
+        ref: ${{ inputs.ref || github.ref }}
 
     - name: Export Actions runtime token
       uses: ./.github/actions/export-runtime
