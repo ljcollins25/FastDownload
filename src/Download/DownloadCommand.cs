@@ -309,7 +309,7 @@ namespace FastDownload.Download
                     await progressReporter.StopAsync();
 
                     var writtenBytes = statistics.Read(Counters.BytesWritten);
-                    if (writtenBytes != expectedWrittenBytes)
+                    if (arguments.SkipZeroRegions ? writtenBytes > expectedWrittenBytes : writtenBytes != expectedWrittenBytes)
                     {
                         throw new InvalidOperationException($"The download has exited with successful state, but the number of bytes written ({writtenBytes}) doesn't match the expected number ({expectedWrittenBytes}). Please contact the development team.");
                     }
