@@ -1,8 +1,7 @@
 name: Lazy disk bench
 
-# Stub on the default branch so the workflow can be dispatched (GitHub only offers "Run workflow" for workflows that
-# exist on the default branch). The real workflow lives on the lazydisk-bench branch: run it with "Use workflow from:
-# lazydisk-bench", or `gh workflow run lazydisk-bench.yml --ref lazydisk-bench -f workload=serilog`.
+# Thin caller on the default branch, so "Run workflow" works with main selected. The real workflow lives on the
+# lazydisk-bench branch and is called at that ref; changes there take effect without touching main.
 on:
   workflow_dispatch:
     inputs:
@@ -21,9 +20,8 @@ permissions:
 
 jobs:
   bench:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Use the lazydisk-bench branch
-      run: |
-        echo "::error::This is a stub. Run the workflow from the lazydisk-bench branch (Use workflow from: lazydisk-bench)."
-        exit 1
+    uses: ljcollins25/FastDownload/.github/workflows/lazydisk-bench.yml@lazydisk-bench
+    with:
+      workload: ${{ inputs.workload }}
+      variants: ${{ inputs.variants }}
+      ref: lazydisk-bench
