@@ -51,7 +51,8 @@ namespace FastDownload.Tests.Roundtrip
                 yield return (2 * block, new byte[block]);
                 // block 3: two small regions
                 yield return (3 * block + 7L * Page, Data(1));
-                yield return (3 * block + 20L * Page, Data(1));
+                // (20 pages is past the end of a 64 KiB block and would fill the block 4 hole)
+                yield return (3 * block + Math.Min(20L, pagesPerBlock - 2) * Page, Data(1));
                 // block 4: hole. block 5: whole block of data
                 yield return (5 * block, Data(pagesPerBlock));
                 // starts mid block 6 and straddles into block 7

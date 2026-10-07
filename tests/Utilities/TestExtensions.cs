@@ -1,4 +1,4 @@
-﻿// Copyright (C) Microsoft Corporation. All Rights Reserved.
+// Copyright (C) Microsoft Corporation. All Rights Reserved.
 
 using BuildXL.Cache.ContentStore.Hashing;
 using BuildXL.Cache.ContentStore.Interfaces.Extensions;
@@ -42,7 +42,7 @@ namespace FastDownload.Tests.Utilities
             {
                 await using var readStream = File.OpenRead(path);
                 var regions = readStream.GetDataRegions();
-                regions.Count.ShouldBeGreaterThan(1);
+                regions.Count.ShouldBeGreaterThan(1, $"{path}: {regions.Count} region(s): {string.Join(", ", regions.Take(8))}; length {readStream.Length}; content regions written {contentRegionCount}");
             }
         }
 
