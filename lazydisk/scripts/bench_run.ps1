@@ -13,6 +13,20 @@ param(
 $cfg = Get-Workload $Workload; $BD = Get-BenchDir $Workload; $R = "$BD\root"; $W = "$BD\run_$Variant"
 Remove-Item $R,$W -Recurse -Force -ea 0; New-Item -ItemType Directory $R,$W | Out-Null
 Start-Transcript "$W\run.txt" -Force | Out-Null
+# Compare a downloaded image with the original: size, per 1 MiB region differences (first 20 ranges), last 512 bytes (VHD footer), sparse flag, allocated size.
+function Compare-Image($orig,$got){
+  $a=[IO.File]::OpenRead($orig); $b=[IO.File]::OpenRead($got)
+  try {
+    "orig size $($a.Length), downloaded size $($b.Length), sparse flag: $((fsutil sparse queryflag $got) -join ' ')"
+    $ba=[byte[]]::new(1MB); $bb=[byte[]]::new(1MB); $bad=@(); $n=0
+    for($off=0; $off -lt [Math]::Max($a.Length,$b.Length); $off+=1MB){
+      $la=0; $lb=0; if($off -lt $a.Length){ $la=$a.Read($ba,0,1MB) }; if($off -lt $b.Length){ $lb=$b.Read($bb,0,1MB) }
+      if($la -ne $lb -or -not [System.MemoryExtensions]::SequenceEqual([ReadOnlySpan[byte]]$ba.AsSpan(0,$la),[ReadOnlySpan[byte]]$bb.AsSpan(0,$lb))){ $n++; if($bad.Count -lt 20){ $bad += "$($off/1MB) MiB (orig $la B, got $lb B)" } }
+    }
+    "differing 1 MiB regions: $n"; $bad
+    foreach($f in @($a,$b)){ if($f.Length -ge 512){ $f.Seek($f.Length-512,0)|Out-Null; $t=[byte[]]::new(512); $f.Read($t,0,512)|Out-Null; "$($f.Name | Split-Path -Leaf) footer cookie: $([Text.Encoding]::ASCII.GetString($t,0,8)), last 16 bytes: $([BitConverter]::ToString($t,496,16))" } }
+  } finally { $a.Dispose(); $b.Dispose() }
+}
 $rec = [ordered]@{ kind='run'; workload=$Workload; variant=$Variant; ok=$false }
 $job = [Diagnostics.Stopwatch]::StartNew(); $sw = [Diagnostics.Stopwatch]::StartNew()
 function T($k){ $rec[$k] = Round2 $sw.Elapsed.TotalSeconds; "[$Variant] $k = $($rec[$k]) s"; $sw.Restart() }
@@ -51,8 +65,8 @@ switch($Variant){
 }
 # --- attach ----------------------------------------------------------------------------------------------------------------------------------
 $vd = Start-Process $VD -ArgumentList "$W\child.vhd",'0','0','--hold',"$W\vdstop" -PassThru -RedirectStandardOutput "$W\vd.txt" -NoNewWindow
-for($i=0;$i -lt 2400 -and -not (Select-String "$W\vd.txt" -Pattern 'ATTACHED|AttachVirtualDisk rc=[1-9]|OpenVirtualDisk rc=[1-9]' -Quiet -ea 0);$i++){ Start-Sleep -Milliseconds 100 }
-if(-not (Select-String "$W\vd.txt" -Pattern 'ATTACHED' -Quiet)){ $rec.error = 'attach failed: ' + ((Get-Content "$W\vd.txt") -join ' '); New-Item "$W\drain" -ItemType File -Force | Out-Null; Finish $false; return }
+for($i=0;$i -lt 2400 -and -not (Select-String "$W\vd.txt" -Pattern 'ATTACHED|AttachVirtualDisk rc=-?[1-9]|OpenVirtualDisk rc=-?[1-9]' -Quiet -ea 0) -and -not $vd.HasExited;$i++){ Start-Sleep -Milliseconds 100 }
+if(-not (Select-String "$W\vd.txt" -Pattern 'ATTACHED' -Quiet)){ if($Variant -eq 'fd'){ $rec.fd_compare = Compare-Image "$BD\store\parent.vhd" "$R\parent.vhd" | Tee-Object "$W\fd-compare.txt" | Out-String; $rec.fd_compare } $rec.error = 'attach failed: ' + ((Get-Content "$W\vd.txt") -join ' '); New-Item "$W\drain" -ItemType File -Force | Out-Null; Finish $false; return }
 $d = Get-Disk | ? Location -like '*child.vhd'; if($d.IsOffline){ Set-Disk $d.Number -IsOffline $false }; if($d.IsReadOnly){ Set-Disk $d.Number -IsReadOnly $false }
 $pt = Get-Partition -DiskNumber $d.Number | ? Type -eq 'IFS' | select -First 1
 if($pt.DriveLetter -ne 'V'){ if($pt.DriveLetter){ Remove-PartitionAccessPath -DiskNumber $d.Number -PartitionNumber $pt.PartitionNumber -AccessPath "$($pt.DriveLetter):\" -ea 0 }; Add-PartitionAccessPath -DiskNumber $d.Number -PartitionNumber $pt.PartitionNumber -AccessPath 'V:\' }

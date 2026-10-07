@@ -76,7 +76,8 @@ namespace FastDownload.Tests.Roundtrip
                 Assert.AreEqual(expected.Length, actual.Length, "length");
                 for (int i = 0; i < expected.Length; i += Page)
                 {
-                    if (!expected.AsSpan(i, Page).SequenceEqual(actual.AsSpan(i, Page)))
+                    int len = Math.Min(Page, expected.Length - i);
+                    if (!expected.AsSpan(i, len).SequenceEqual(actual.AsSpan(i, len)))
                     {
                         Assert.Fail($"Downloaded file differs from input in page {i / Page} (offset {i})");
                     }
@@ -117,6 +118,82 @@ namespace FastDownload.Tests.Roundtrip
                             })));
 
                 // The roundtrip test hashes the downloaded file and compares it with the hash of the generated input
+                await test.ExecuteRoundtripTestAsync(blockSize: blockSize);
+            }
+        }
+
+        /// <summary>A fixed-VHD-like image: data, a large zero middle, and a 512 byte footer so the file length is not a multiple of 4 KiB.</summary>
+        internal sealed class VhdFooterGenerator : ISparseContentGenerator
+        {
+            public IEnumerable<(long Offset, ReadOnlyMemory<byte> Content)> GenerateContentRegions(UploadArguments upload, DownloadArguments download)
+            {
+                long block = upload.BlockSize;
+                var random = new Random(77);
+                byte[] Data(int bytes) { var b = new byte[bytes]; random.NextBytes(b); for (int i = 0; i < b.Length; i++) { if (b[i] == 0) { b[i] = 1; } } return b; }
+                yield return (0, Data(3 * Page));
+                yield return (3 * block + 9L * Page, Data(2 * Page));
+                // footer: 512 bytes at an offset that is a multiple of 512 but not of 4096
+                yield return (7 * block + 512 * 5, Data(512));
+            }
+        }
+
+        /// <summary>Many 64 KiB granular regions (NTFS allocation unit), some with zero tails, spread over a few hundred MiB, ending with a 512 byte footer.</summary>
+        internal sealed class DenseVhdLikeGenerator : ISparseContentGenerator
+        {
+            public IEnumerable<(long Offset, ReadOnlyMemory<byte> Content)> GenerateContentRegions(UploadArguments upload, DownloadArguments download)
+            {
+                var random = new Random(99);
+                const int unit = 64 * 1024;
+                long offset = 0;
+                for (int i = 0; i < 700; i++)
+                {
+                    var b = new byte[unit * (1 + random.Next(4))];
+                    random.NextBytes(b);
+                    for (int j = 0; j < b.Length; j++) { if (b[j] == 0) { b[j] = 1; } }
+                    if (i % 3 == 0) { Array.Clear(b, b.Length / 2, b.Length / 2); }
+                    if (i % 7 == 0) { Array.Clear(b, 0, unit); }
+                    yield return (offset, b);
+                    offset += b.Length + unit * random.Next(0, 40);
+                }
+
+                var footer = new byte[512];
+                random.NextBytes(footer);
+                yield return (offset + 512, footer);
+            }
+        }
+
+        [TestMethod]
+        [DataRow(SparseHandlingMode.Compact, 128u << 20)]
+        [DataRow(SparseHandlingMode.Compact, 8u << 20)]
+        [DataRow(SparseHandlingMode.SkipHoles, 128u << 20)]
+        public async Task DenseVhdLikeSkipZeroRoundtripAsync(SparseHandlingMode mode, uint blockSize)
+        {
+            var test = new RoundtripTest(
+                new DenseVhdLikeGenerator(),
+                Compound.Sequential(
+                    new SuccessBehavior(),
+                    new ByteCompareBehavior(),
+                    new ConfigureBehavior(
+                        configureUpload: upload => upload.SparseHandling = mode,
+                        configureDownload: download => download.SkipZeroRegions = true)));
+            await test.ExecuteRoundtripTestAsync(blockSize: blockSize);
+        }
+
+        [TestMethod]
+        [DataRow(SparseHandlingMode.SkipHoles)]
+        [DataRow(SparseHandlingMode.Compact)]
+        public async Task UnalignedTailSkipZeroRoundtripAsync(SparseHandlingMode mode)
+        {
+            foreach (uint blockSize in new uint[] { 64 * 1024, 1024 * 1024 })
+            {
+                var test = new RoundtripTest(
+                    new VhdFooterGenerator(),
+                    Compound.Sequential(
+                        new SuccessBehavior(),
+                        new ByteCompareBehavior(),
+                        new ConfigureBehavior(
+                            configureUpload: upload => upload.SparseHandling = mode,
+                            configureDownload: download => download.SkipZeroRegions = true)));
                 await test.ExecuteRoundtripTestAsync(blockSize: blockSize);
             }
         }
