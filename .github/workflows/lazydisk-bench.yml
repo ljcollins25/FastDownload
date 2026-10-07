@@ -57,14 +57,15 @@ jobs:
 
     - name: Build workload image and publish blobs
       shell: pwsh
-      run: ./lazydisk/scripts/bench_build.ps1 -Workload '${{ inputs.workload || 'selftest' }}' -Variants '${{ inputs.variants || 'native,fd,lazy,lazyfd' }}'
+      run: |
+        & "$env:GITHUB_WORKSPACE/lazydisk/scripts/bench_build.ps1" -Workload '${{ inputs.workload || 'selftest' }}' -Variants '${{ inputs.variants || 'native,fd,lazy,lazyfd' }}'
 
     - name: Run variants
       shell: pwsh
       run: |
         foreach ($v in '${{ inputs.variants || 'native,fd,lazy,lazyfd' }}'.Split(',') | % { $_.Trim() } | ? { $_ }) {
           "=== $v ==="
-          ./lazydisk/scripts/bench_run.ps1 -Workload '${{ inputs.workload || 'selftest' }}' -Variant $v
+          & "$env:GITHUB_WORKSPACE/lazydisk/scripts/bench_run.ps1" -Workload '${{ inputs.workload || 'selftest' }}' -Variant $v
         }
 
     - name: Summary
