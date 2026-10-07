@@ -352,33 +352,41 @@ internal sealed class GlobalState
             writeItems.Add(sourceItem);
         }
 
-        // Check if there are leading and trailing zeros (requires a 25% savings from removing leading and trailing bytes)
-        // as otherwise it might be preferable to just write the whole region since there's a greater likelihood of writing
-        // muliple regions in a batch
-        if (trimmedRegion?.Length < (Input.ChunkSize * 0.75))
+        // Trim leading and trailing zeros of each write item in *its own* buffer coordinates (requires a 25% savings from
+        // removing leading and trailing bytes), as otherwise it might be preferable to just write the whole region since
+        // there's a greater likelihood of writing multiple regions in a batch.
+        // NOTE: the trim must be computed per item, not once for the whole source buffer: with Compact sparse handling the
+        // source buffer is a concatenation of several regions (compacted coordinates) and the item destinations are file
+        // coordinates, so a trim region of the whole buffer cannot be mapped onto the destinations by shifting it with the block start.
+        if (trimmedRegion is not null)
         {
             for (int i = writeItems.Count - 1; i >= 0; i--)
             {
                 var writeItem = writeItems[i];
                 var destination = writeItem.Work.Destination;
-                var targetBlock = destination.AlignTo(Input.ChunkSize);
-                var targetRegion = trimmedRegion.Value.Shift(targetBlock.Start);
-                if (targetRegion.Intersect(destination) is { } updatedDestination)
+                var itemTrim = writeItem.Buffer.Span.GetTrimRegion().AlignTo(Input.Alignment);
+                if (itemTrim.End > writeItem.Buffer.Length)
+                {
+                    itemTrim = new Chunk(itemTrim.Start, writeItem.Buffer.Length);
+                }
+
+                if (itemTrim.Length == 0)
+                {
+                    // Region is all zeros: nothing to write
+                    writeItem.BufferHandle.Dispose();
+                    writeItems.RemoveAt(i);
+                }
+                else if (itemTrim.Length < (writeItem.Buffer.Length * 0.75))
                 {
                     writeItems[i] = writeItem with
                     {
                         Work = writeItem.Work with
                         {
-                            Destination = updatedDestination
+                            Destination = new Chunk(destination.Start + itemTrim.Start, destination.Start + itemTrim.End)
                         },
 
-                        Buffer = writeItem.Buffer.Slice((int)(updatedDestination.Start - destination.Start), (int)updatedDestination.Length)
+                        Buffer = writeItem.Buffer.Slice((int)itemTrim.Start, (int)itemTrim.Length)
                     };
-                }
-                else
-                {
-                    writeItem.BufferHandle.Dispose();
-                    writeItems.RemoveAt(i);
                 }
             }
         }
