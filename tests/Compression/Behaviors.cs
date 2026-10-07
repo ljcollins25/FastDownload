@@ -111,7 +111,15 @@ namespace FastDownload.Tests.Roundtrip
 
             Assert.AreEqual(uploadResult.InputHash, downloadResult.OutputHash);
 
-            download.Statistics.Read(Counters.BytesWritten).ShouldBe(upload.Statistics.Read(Counters.BytesRead));
+            if (download.SkipZeroRegions)
+            {
+                // Zero regions are legitimately not written
+                download.Statistics.Read(Counters.BytesWritten).ShouldBeLessThanOrEqualTo(upload.Statistics.Read(Counters.BytesRead));
+            }
+            else
+            {
+                download.Statistics.Read(Counters.BytesWritten).ShouldBe(upload.Statistics.Read(Counters.BytesRead));
+            }
         }
 
         private static async Task CompareFilesAsync(string inputPath, string downloadPath, long blockSize)

@@ -22,7 +22,10 @@ namespace FastDownload.Tests.Utilities
             {
                 if (sparse)
                 {
-                    WindowsNativeMethods.SetSparseFlag(outputStream, true).ShouldBe(true);
+                    if (OperatingSystem.IsWindows())
+                    {
+                        WindowsNativeMethods.SetSparseFlag(outputStream, true).ShouldBe(true);
+                    }
                 }
 
                 foreach (var region in contentRegions)
@@ -38,7 +41,7 @@ namespace FastDownload.Tests.Utilities
             if (sparse && contentRegionCount > 1)
             {
                 await using var readStream = File.OpenRead(path);
-                var regions = WindowsNativeMethods.GetDataRegions(readStream);
+                var regions = readStream.GetDataRegions();
                 regions.Count.ShouldBeGreaterThan(1);
             }
         }
