@@ -1,6 +1,9 @@
 name: Lazy disk bench
 
 on:
+  # A push to this branch runs the quick selftest (manual dispatch needs the workflow on the default branch).
+  push:
+    branches: [lazydisk-bench]
   workflow_dispatch:
     inputs:
       workload:
@@ -38,14 +41,14 @@ jobs:
 
     - name: Build workload image and publish blobs
       shell: pwsh
-      run: ./lazydisk/scripts/bench_build.ps1 -Workload '${{ inputs.workload }}' -Variants '${{ inputs.variants }}'
+      run: ./lazydisk/scripts/bench_build.ps1 -Workload '${{ inputs.workload || 'selftest' }}' -Variants '${{ inputs.variants || 'native,fd,lazy,lazyfd' }}'
 
     - name: Run variants
       shell: pwsh
       run: |
-        foreach ($v in '${{ inputs.variants }}'.Split(',') | % { $_.Trim() } | ? { $_ }) {
+        foreach ($v in '${{ inputs.variants || 'native,fd,lazy,lazyfd' }}'.Split(',') | % { $_.Trim() } | ? { $_ }) {
           "=== $v ==="
-          ./lazydisk/scripts/bench_run.ps1 -Workload '${{ inputs.workload }}' -Variant $v
+          ./lazydisk/scripts/bench_run.ps1 -Workload '${{ inputs.workload || 'selftest' }}' -Variant $v
         }
 
     - name: Summary
