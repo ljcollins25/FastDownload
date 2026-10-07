@@ -309,7 +309,7 @@ internal sealed class GlobalState
         {
             foreach (var destinationWork in destinationWorkItems)
             {
-                Contract.Assert(sourceItem.BufferHandle.TryReference());
+                { var referenced = sourceItem.BufferHandle.TryReference(); Contract.Assert(referenced); }
 
                 writeItems.Add(sourceItem with
                 {
@@ -330,7 +330,7 @@ internal sealed class GlobalState
 
                 var alignedLength = (int)region.AlignTo(Input.Alignment).Length;
 
-                Contract.Assert(sourceItem.BufferHandle.TryReference());
+                { var referenced = sourceItem.BufferHandle.TryReference(); Contract.Assert(referenced); }
 
                 writeItems.Add(new WriteItem(
                     Work: sourceItem.Work with
