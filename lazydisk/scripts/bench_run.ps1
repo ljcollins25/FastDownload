@@ -32,7 +32,7 @@ $rec = [ordered]@{ kind='run'; workload=$Workload; variant=$Variant; ok=$false }
 $job = [Diagnostics.Stopwatch]::StartNew(); $sw = [Diagnostics.Stopwatch]::StartNew()
 function T($k){ $rec[$k] = Round2 $sw.Elapsed.TotalSeconds; "[$Variant] $k = $($rec[$k]) s"; $sw.Restart() }
 $mon = Start-Process pwsh -ArgumentList '-NoProfile','-File',"$PSScriptRoot\I_mon.ps1","$W\mon.csv","$W\mon.stop" -PassThru -WindowStyle Hidden
-$prov = $null
+$provProc = $null
 function Finish([bool]$ok){
   $rec.ok = $ok; $rec.total_job_s = Round2 $job.Elapsed.TotalSeconds
   New-Item "$W\mon.stop" -ItemType File -Force | Out-Null
@@ -59,14 +59,14 @@ switch($Variant){
     foreach($x in @(@('child','child.vhd'),@('ranges','meta.ranges'),@($d.idx,$d.idxf))){ & $CL down "$ART-$Workload-$($x[0])" "$W\$($x[1])" | Out-Null }
     T 'fetch_small_s'
     $pa = @('serve',$R,'--src',"art:$($d.blob)",'--index',"$W\$($d.idxf)",'--name','parent.vhd','--prehydrate',"$W\meta.ranges",'--stop',"$W\cf.stop",'--drain',"$W\drain",'--log',"$W\cf.log") + ($Prov -split ' ' | ? {$_})
-    $prov = Start-Process $CL -ArgumentList $pa -PassThru -RedirectStandardOutput "$W\prov.txt" -WindowStyle Hidden
-    for($i=0;$i -lt 3000 -and -not (Select-String "$W\prov.txt" -Pattern 'READY' -Quiet -ea 0) -and -not $prov.HasExited;$i++){ Start-Sleep -Milliseconds 100 }
+    $provProc = Start-Process $CL -ArgumentList $pa -PassThru -RedirectStandardOutput "$W\prov.txt" -WindowStyle Hidden
+    for($i=0;$i -lt 3000 -and -not (Select-String "$W\prov.txt" -Pattern 'READY' -Quiet -ea 0) -and -not $provProc.HasExited;$i++){ Start-Sleep -Milliseconds 100 }
     $rec.prehydrate = ((Select-String "$W\prov.txt" -Pattern 'PREHYDRATE').Line); T 'provider_prehydrate_s'
   }
 }
 # --- attach ----------------------------------------------------------------------------------------------------------------------------------
-$vd = Start-Process $VD -ArgumentList "$W\child.vhd",'0','0','--hold',"$W\vdstop" -PassThru -RedirectStandardOutput "$W\vd.txt" -NoNewWindow
-for($i=0;$i -lt 2400 -and -not (Select-String "$W\vd.txt" -Pattern 'ATTACHED|AttachVirtualDisk rc=-?[1-9]|OpenVirtualDisk rc=-?[1-9]' -Quiet -ea 0) -and -not $vd.HasExited;$i++){ Start-Sleep -Milliseconds 100 }
+$vdProc = Start-Process $VD -ArgumentList "$W\child.vhd",'0','0','--hold',"$W\vdstop" -PassThru -RedirectStandardOutput "$W\vd.txt" -NoNewWindow
+for($i=0;$i -lt 2400 -and -not (Select-String "$W\vd.txt" -Pattern 'ATTACHED|AttachVirtualDisk rc=-?[1-9]|OpenVirtualDisk rc=-?[1-9]' -Quiet -ea 0) -and -not $vdProc.HasExited;$i++){ Start-Sleep -Milliseconds 100 }
 if(-not (Select-String "$W\vd.txt" -Pattern 'ATTACHED' -Quiet)){ if($Variant -eq 'fd'){ $rec.fd_compare = Compare-Image "$BD\store\parent.vhd" "$R\parent.vhd" | Tee-Object "$W\fd-compare.txt" | Out-String; $rec.fd_compare } $rec.error = 'attach failed: ' + ((Get-Content "$W\vd.txt") -join ' '); New-Item "$W\drain" -ItemType File -Force | Out-Null; Finish $false; return }
 $d = Get-Disk | ? Location -like '*child.vhd'; if($d.IsOffline){ Set-Disk $d.Number -IsOffline $false }; if($d.IsReadOnly){ Set-Disk $d.Number -IsReadOnly $false }
 $pt = Get-Partition -DiskNumber $d.Number | ? Type -eq 'IFS' | select -First 1
@@ -82,8 +82,8 @@ $o | Select -SkipLast 1 | Write-Host
 $rec.workload_log_tail = (Get-Content "$W\workload-build.log" -Tail 3 -ea 0) -join ' | '
 $rec.job_start_to_workload_done_s = Round2 $job.Elapsed.TotalSeconds
 # --- detach / provider summary ------------------------------------------------------------------------------------------------------------------
-New-Item "$W\vdstop" -ItemType File -Force | Out-Null; $vd.WaitForExit(30000) | Out-Null
-if(-not $vd.HasExited){ New-Item "$W\drain" -ItemType File | Out-Null; $vd.WaitForExit(60000) | Out-Null }
+New-Item "$W\vdstop" -ItemType File -Force | Out-Null; $vdProc.WaitForExit(30000) | Out-Null
+if(-not $vdProc.HasExited){ New-Item "$W\drain" -ItemType File | Out-Null; $vdProc.WaitForExit(60000) | Out-Null }
 $rec.child_mib_after = Round2 ((Get-Item "$W\child.vhd").Length/1MB)
-if($prov){ New-Item "$W\cf.stop" -ItemType File | Out-Null; $prov.WaitForExit(30000) | Out-Null; $rec.provider_summary = (Select-String "$W\prov.txt" -Pattern 'SUMMARY').Line }
+if($provProc){ New-Item "$W\cf.stop" -ItemType File | Out-Null; $provProc.WaitForExit(30000) | Out-Null; $rec.provider_summary = (Select-String "$W\prov.txt" -Pattern 'SUMMARY').Line }
 Finish ($rec.workload_exit -eq 0 -or $Workload -eq 'serilog')
