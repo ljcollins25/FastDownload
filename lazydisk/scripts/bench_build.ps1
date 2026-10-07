@@ -16,6 +16,8 @@ New-Item -ItemType Directory "$BD\root","$BD\store","$BD\logs" -Force | Out-Null
 New-Item -ItemType Directory D:\lazy\results -Force | Out-Null
 Start-Transcript "$BD\logs\build.txt" -Force | Out-Null
 $img = "$BD\root\parent.vhd"; $sw = [Diagnostics.Stopwatch]::StartNew(); $rec = [ordered]@{ kind='build'; workload=$Workload; size_mib=$SizeMiB; commit=$null }
+function Die($m){ "BUILD FAILED: $m"; Stop-Transcript | Out-Null; exit 1 }
+function Chk($what){ if($LASTEXITCODE){ Die "$what (exit $LASTEXITCODE)" } }
 function T($k){ $rec[$k] = Round2 $sw.Elapsed.TotalSeconds; "$k = $($rec[$k]) s"; $sw.Restart() }
 
 DP "create vdisk file=`"$img`" maximum=$SizeMiB type=fixed`nselect vdisk file=`"$img`"`nattach vdisk`ncreate partition primary offset=1024`nformat fs=ntfs unit=4096 quick label=LAZY`nassign letter=V" | Select -Last 2
@@ -46,17 +48,17 @@ Stop-BuildServers; Set-Location D:\
 $m = Get-ChildItem V:\ -Recurse -File -Force -ea 0 | Measure-Object Length -Sum
 $rec.files = $m.Count; $rec.file_bytes = $m.Sum; $rec.volume_used_mib = [int]((Get-PSDrive V).Used/1MB)
 "files: $($m.Count) bytes: $($m.Sum) volume used MiB: $($rec.volume_used_mib)"
-& $EM map V: 1048576 ([int64]$SizeMiB*1MB) "$BD\holes.txt" | Select -Last 3; T 'map_s'
+& $EM map V: 1048576 ([int64]$SizeMiB*1MB) "$BD\holes.txt" | Select -Last 3; Chk 'ExtentMap map'; T 'map_s'
 Start-Sleep 3; Detach-Vhd $img
 $len = (Get-Item $img).Length; $rec.image_bytes = $len
 DP "create vdisk file=`"$BD\child.vhd`" parent=`"$img`"" | Out-Null
 $rec.child_bytes = (Get-Item "$BD\child.vhd").Length
-& $CL ranges "$BD\holes.txt" $len "$BD\meta.ranges" | Tee-Object -Variable rr | Out-Host; $rec.meta_ranges = "$rr"
+& $CL ranges "$BD\holes.txt" $len "$BD\meta.ranges" | Tee-Object -Variable rr | Out-Host; Chk 'CfLazy ranges'; $rec.meta_ranges = "$rr"
 Move-Item $img "$BD\store\parent.vhd"; Copy-Item "$BD\child.vhd" "$BD\store\child.vhd"
 
-function Up($name,$file){ $s=[Diagnostics.Stopwatch]::StartNew(); & $CL up "$ART-$Workload-$name" $file | Out-Host; "upload $name $(Round2 $s.Elapsed.TotalSeconds) s" }
+function Up($name,$file){ $s=[Diagnostics.Stopwatch]::StartNew(); & $CL up "$ART-$Workload-$name" $file | Out-Host; Chk "CfLazy up $name"; "upload $name $(Round2 $s.Elapsed.TotalSeconds) s" }
 if($vs -contains 'lazy'){
-  & $CL pack "$BD\store\parent.vhd" "$BD\data.bin" "$BD\data.idx" $ChunkKiB 1 | Tee-Object -Variable pk | Out-Host; T 'pack_s'
+  & $CL pack "$BD\store\parent.vhd" "$BD\data.bin" "$BD\data.idx" $ChunkKiB 1 | Tee-Object -Variable pk | Out-Host; Chk 'CfLazy pack'; T 'pack_s'
   $rec.cfl_data_bytes = (Get-Item "$BD\data.bin").Length; $rec.cfl_idx_bytes = (Get-Item "$BD\data.idx").Length; $rec.cfl_pack = "$pk"
   Up 'data' "$BD\data.bin"; Up 'idx' "$BD\data.idx"; T 'upload_cfl_s'
 }
@@ -64,7 +66,7 @@ if(($vs -contains 'lazy') -or ($vs -contains 'lazyfd')){ Up 'ranges' "$BD\meta.r
 if(($vs -contains 'lazy') -or ($vs -contains 'lazyfd') -or ($vs -contains 'fd')){ Up 'child' "$BD\child.vhd" }
 if(($vs -contains 'fd') -or ($vs -contains 'lazyfd')){
   # FastDownload reads data regions of a SPARSE source: make a sparse copy (all-zero 64 KiB blocks unallocated). Same bytes as the original.
-  & $EM sparsecopy "$BD\store\parent.vhd" "$BD\store\parent.sparse" 64 | Out-Host; T 'sparsecopy_s'
+  & $EM sparsecopy "$BD\store\parent.vhd" "$BD\store\parent.sparse" 64 | Out-Host; Chk 'ExtentMap sparsecopy'; T 'sparsecopy_s'
   $env:FASTDL_WRITE_ONLY_SAS = '1'
   function FdUp($name,$mode,$blockBytes){
     $u = (& $CL art-create "$ART-$Workload-$name" | Select -Last 1).Trim(); $s=[Diagnostics.Stopwatch]::StartNew()
@@ -73,12 +75,13 @@ if(($vs -contains 'fd') -or ($vs -contains 'lazyfd')){
     $bytes = ((Select-String '"BytesUploaded"\s*:\s*(\d+)' "$BD\logs\upload-$name.log" | Select -First 1).Matches.Groups[1].Value)
     if($rc -eq 0 -and $bytes){ & $CL art-finalize "$ART-$Workload-$name" $bytes | Out-Host }
     $rec["fd_${name}_upload_exit"]=$rc; $rec["fd_${name}_upload_s"]=$t; $rec["fd_${name}_blob_bytes"]=[int64]$bytes; $rec["fd_${name}_manifest_bytes"]=(Get-Item "$BD\$name.manifest.json" -ea 0).Length
-    "FD upload $name ($mode, block $blockBytes): exit $rc, $t s, $bytes bytes"; if($rc){ Get-Content "$BD\logs\upload-$name.log" -Tail 15 }
+    "FD upload $name ($mode, block $blockBytes): exit $rc, $t s, $bytes bytes"; if($rc){ Get-Content "$BD\logs\upload-$name.log" -Tail 15; Die "FastDownload upload $name failed" }
+    if($LASTEXITCODE){ Die "CfLazy art-finalize $name (exit $LASTEXITCODE)" }
   }
   if($vs -contains 'fd'){ FdUp 'fdfull' 'Compact' ($FdBlockMiB*1MB) }
   if($vs -contains 'lazyfd'){
     FdUp 'fdlazy' 'SkipHoles' ($FdLazyBlockKiB*1KB)
-    & $CL fdidx "$BD\fdlazy.manifest.json" "$BD\fdlazy.idx" | Tee-Object -Variable fi | Out-Host; $rec.fdidx = "$fi"
+    & $CL fdidx "$BD\fdlazy.manifest.json" "$BD\fdlazy.idx" | Tee-Object -Variable fi | Out-Host; Chk 'CfLazy fdidx'; $rec.fdidx = "$fi"
     Up 'fdidx' "$BD\fdlazy.idx"
   }
   T 'upload_fd_s'
